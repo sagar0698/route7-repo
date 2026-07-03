@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Route 7 — Pokémon Card Market Tracker</title>
+<style>
+  :root{
+    --void:#0b1020; --panel:#12172b; --panel-2:#1a2140; --line:#26305c;
+    --ink:#eaf0ff; --ink-dim:#8a94c0;
+    --spark:#ffd23f; --spark-deep:#f4a900; --volt:#3ad6c9;
+    --rise:#4ade80; --fall:#fb7185; --hold:#a5b4fc; --warn:#fbbf24;
+    --radius:14px; --shadow:0 12px 40px -12px rgba(0,0,0,.7);
+    --mono:'Courier New',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif;
+    background:
+      radial-gradient(1200px 500px at 15% -10%, rgba(58,214,201,.10), transparent 60%),
+      radial-gradient(900px 400px at 100% 0%, rgba(255,210,63,.08), transparent 55%),
+      var(--void);
+    color:var(--ink); min-height:100vh; -webkit-font-smoothing:antialiased; padding-bottom:80px;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  header{padding:30px 0 10px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .ball{width:30px;height:30px;border-radius:50%;flex:none;
+    background:linear-gradient(180deg,var(--fall) 0 46%, #fff 46% 54%, var(--panel) 54% 100%);
+    border:2.5px solid #0b1020;position:relative;box-shadow:0 0 0 2px var(--line), var(--shadow)}
+  .ball::after{content:"";position:absolute;top:50%;left:50%;width:9px;height:9px;border-radius:50%;
+    background:#fff;border:2.5px solid #0b1020;transform:translate(-50%,-50%)}
+  .brand h1{font-size:20px;letter-spacing:.5px;font-weight:700}
+  .brand h1 span{color:var(--spark)}
+  .tagline{color:var(--ink-dim);font-size:13px;margin-top:2px}
+
+  .hero{margin:26px 0 8px;padding:32px 28px;border-radius:var(--radius);
+    background:linear-gradient(135deg, rgba(26,33,64,.9), rgba(18,23,43,.9));
+    border:1px solid var(--line);box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .hero::before{content:"";position:absolute;inset:0;background:
+    repeating-linear-gradient(90deg, transparent 0 46px, rgba(58,214,201,.04) 46px 47px);pointer-events:none}
+  .hero h2{font-size:28px;line-height:1.15;max-width:640px;position:relative}
+  .hero h2 em{font-style:normal;color:var(--spark)}
+  .hero p{color:var(--ink-dim);margin-top:10px;max-width:560px;position:relative;font-size:14.5px}
+
+  .searchbar{margin-top:20px;display:flex;gap:10px;position:relative;flex-wrap:wrap}
+  .searchbar input{flex:1;min-width:220px;padding:15px 18px;border-radius:12px;border:1px solid var(--line);
+    background:var(--void);color:var(--ink);font-size:16px;outline:none;transition:.2s}
+  .searchbar input:focus{border-color:var(--volt);box-shadow:0 0 0 3px rgba(58,214,201,.18)}
+  .searchbar button{padding:15px 26px;border-radius:12px;border:none;cursor:pointer;font-weight:700;font-size:15px;
+    background:linear-gradient(180deg,var(--spark),var(--spark-deep));color:#241a00;transition:.15s;
+    box-shadow:0 6px 18px -6px var(--spark-deep)}
+  .searchbar button:hover{transform:translateY(-1px)}
+
+  /* filter row */
+  .filters{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;position:relative}
+  .filters .fg{display:flex;flex-direction:column;gap:4px;flex:1;min-width:150px}
+  .filters label{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-dim)}
+  .filters select{padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--void);
+    color:var(--ink);font-size:13.5px;outline:none;cursor:pointer;font-family:inherit}
+  .filters select:focus{border-color:var(--volt)}
+  .hint{color:var(--ink-dim);font-size:12.5px;margin-top:12px}
+  .hint b{color:var(--volt)}
+
+  .tabs{display:flex;gap:4px;margin:30px 0 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .tab{padding:11px 15px;cursor:pointer;color:var(--ink-dim);font-weight:600;font-size:13.5px;
+    border-bottom:2px solid transparent;transition:.15s;user-select:none;white-space:nowrap}
+  .tab:hover{color:var(--ink)}
+  .tab.active{color:var(--spark);border-bottom-color:var(--spark)}
+
+  .results{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+  .pcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;
+    cursor:pointer;transition:.18s;display:flex;flex-direction:column;position:relative}
+  .pcard:hover{transform:translateY(-4px);border-color:var(--volt);box-shadow:var(--shadow)}
+  .pcard .imgwrap{aspect-ratio:.72;background:var(--void);display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .pcard img{width:100%;height:100%;object-fit:contain}
+  .pcard .meta{padding:12px 13px}
+  .pcard .nm{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pcard .st{color:var(--ink-dim);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pcard .row{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px}
+  .pcard .price{font-family:var(--mono);font-weight:700;font-size:17px;color:var(--spark)}
+  .pcard .price.na{color:var(--ink-dim);font-size:13px;font-family:inherit;font-weight:600}
+  .pcard .delta{font-size:11px;font-weight:700;font-family:var(--mono)}
+  .down{color:var(--rise)}
+  .rar{display:inline-block;font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-dim);
+    border:1px solid var(--line);border-radius:20px;padding:2px 8px;margin-top:8px}
+  .flag{position:absolute;top:8px;right:8px;background:rgba(251,113,133,.92);color:#2a0b12;font-size:10px;
+    font-weight:800;padding:3px 8px;border-radius:20px;letter-spacing:.3px}
+
+  .state{text-align:center;padding:60px 20px;color:var(--ink-dim)}
+  .state .big{font-size:40px;margin-bottom:10px}
+  .spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--spark);
+    border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(4,7,16,.78);backdrop-filter:blur(4px);
+    display:none;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:50;overflow-y:auto}
+  .modal-bg.open{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:18px;max-width:760px;width:100%;
+    box-shadow:var(--shadow);overflow:hidden;animation:pop .2s ease;position:relative}
+  @keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+  .modal-top{display:flex;gap:22px;padding:24px;flex-wrap:wrap}
+  .modal-top img{width:180px;border-radius:10px;flex:none;background:var(--void)}
+  .modal-info{flex:1;min-width:220px}
+  .modal-info h3{font-size:22px}
+  .modal-info .sub{color:var(--ink-dim);font-size:13px;margin:4px 0 12px}
+  .close{position:absolute;top:16px;right:18px;font-size:26px;color:var(--ink-dim);cursor:pointer;line-height:1;z-index:2}
+
+  .realprice{background:var(--void);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:12px}
+  .realprice .headline{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .realprice .big{font-family:var(--mono);font-weight:800;font-size:28px;color:var(--spark)}
+  .realprice .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-dim)}
+  .realprice .variant{font-size:11px;color:var(--volt);border:1px solid var(--line);border-radius:20px;padding:2px 9px}
+  .rng{display:flex;gap:18px;margin-top:12px;flex-wrap:wrap}
+  .rng .cell .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-dim)}
+  .rng .cell .v{font-family:var(--mono);font-weight:700;font-size:15px;margin-top:2px}
+  .updated{font-size:11px;color:var(--ink-dim);margin-top:12px}
+  .noprice{background:var(--void);border:1px dashed var(--line);border-radius:12px;padding:16px;margin-top:12px;
+    color:var(--ink-dim);font-size:13.5px;line-height:1.5}
+  .avoid-note{margin-top:12px;background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.35);
+    border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.5}
+  .avoid-note b{color:var(--fall);display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px;font-size:12px}
+
+  .cmp{padding:0 24px 8px}
+  .cmp h4{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-dim);margin:14px 0 4px}
+  .cmp .cmp-note{font-size:12px;color:var(--ink-dim);margin-bottom:10px;line-height:1.5}
+  .site-row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:10px;
+    background:var(--void);margin-bottom:7px;border:1px solid transparent;text-decoration:none;color:inherit;transition:.15s}
+  .site-row:hover{border-color:var(--volt);transform:translateX(2px)}
+  .site-row.hero-row{border-color:var(--spark);background:rgba(255,210,63,.06)}
+  .site-left{display:flex;align-items:center;gap:11px}
+  .site-dot{width:9px;height:9px;border-radius:3px}
+  .site-name{font-weight:600;font-size:14px}
+  .site-ship{color:var(--ink-dim);font-size:11.5px;margin-top:1px}
+  .site-go{font-size:12px;color:var(--volt);font-weight:600;white-space:nowrap}
+  .badge-nm{font-size:9.5px;background:var(--spark);color:#241a00;padding:2px 7px;border-radius:20px;font-weight:800;margin-left:7px}
+  .gorilla{display:block;margin:10px 0 4px;padding:11px 14px;border-radius:10px;text-decoration:none;
+    background:linear-gradient(90deg, rgba(240,90,180,.10), rgba(255,210,63,.06));
+    border:1px solid var(--line);color:var(--ink);font-size:13px;transition:.15s}
+  .gorilla:hover{border-color:#f05ab4}
+  .gorilla b{color:#f05ab4}
+  .cmp-foot{padding:14px 24px 24px;color:var(--ink-dim);font-size:12px;line-height:1.55}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:22px}
+  .panel h3{font-size:18px;margin-bottom:4px}
+  .panel .lead{color:var(--ink-dim);font-size:13.5px;margin-bottom:18px;line-height:1.55}
+  .controls{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end}
+  .ctrl{flex:1;min-width:170px}
+  .ctrl label{display:block;font-size:12px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+  .ctrl input[type=range]{width:100%;accent-color:var(--spark)}
+  .ctrl .val{font-family:var(--mono);font-weight:700;color:var(--spark);font-size:18px}
+  .seg{display:flex;background:var(--void);border-radius:10px;padding:4px;border:1px solid var(--line)}
+  .seg button{flex:1;padding:9px;border:none;background:transparent;color:var(--ink-dim);font-weight:700;
+    border-radius:7px;cursor:pointer;font-size:13px;transition:.15s}
+  .seg button.on{background:var(--spark);color:#241a00}
+  .basket{margin-top:8px}
+  .basket-sum{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-top:1px solid var(--line);margin-top:14px}
+  .basket-sum .tot{font-family:var(--mono);font-weight:800;font-size:20px;color:var(--spark)}
+  .brow{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-radius:10px;
+    background:var(--void);margin-bottom:7px;text-decoration:none;color:inherit;border:1px solid transparent;transition:.15s}
+  .brow:hover{border-color:var(--volt)}
+
+  /* rarity decoder */
+  .decoder{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+  .dcard{background:var(--void);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .dcard .dt{font-weight:700;font-size:15px;color:var(--spark);display:flex;align-items:center;gap:8px}
+  .dcard .em{font-size:20px}
+  .dcard .db{color:var(--ink-dim);font-size:13px;line-height:1.5;margin-top:8px}
+  .dcard .tag{display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:20px;margin-top:10px;font-weight:700}
+  .tag-hold{background:rgba(74,222,128,.14);color:var(--rise)}
+  .tag-care{background:rgba(251,191,36,.14);color:var(--warn)}
+  .tag-avoid{background:rgba(251,113,133,.14);color:var(--fall)}
+
+  /* release / restock */
+  .rel-list{display:flex;flex-direction:column;gap:8px}
+  .rel-row{display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--void);border:1px solid var(--line);border-radius:10px}
+  .rel-row img{width:52px;height:34px;object-fit:contain;flex:none}
+  .rel-name{font-weight:600;font-size:14px}
+  .rel-date{color:var(--ink-dim);font-size:12px;margin-top:1px}
+  .rel-chip{margin-left:auto;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .chip-soon{background:rgba(58,214,201,.15);color:var(--volt)}
+  .chip-new{background:rgba(74,222,128,.15);color:var(--rise)}
+  .linkrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .linkbtn{padding:11px 16px;border-radius:10px;border:1px solid var(--line);background:var(--void);
+    color:var(--ink);text-decoration:none;font-size:13px;font-weight:600;transition:.15s}
+  .linkbtn:hover{border-color:var(--volt);color:var(--volt)}
+
+  footer{color:var(--ink-dim);font-size:12px;text-align:center;padding:40px 20px 0;line-height:1.7}
+  footer .src{color:var(--volt)}
+  .disclaim{max-width:680px;margin:14px auto 0;font-size:11.5px;opacity:.8}
+  @media(max-width:600px){.hero h2{font-size:22px}.modal-top img{width:130px}.realprice .big{font-size:23px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="ball"></div>
+      <div>
+        <h1>ROUTE&nbsp;<span>7</span></h1>
+        <div class="tagline">Pokémon card market tracker · real TCGplayer prices, one tap to every shop</div>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <h2>Search any card. See its <em>real</em> Near Mint price, then jump straight to every shop that sells it.</h2>
+    <p>Live TCGplayer market data, filters for set, language, and condition, budget baskets, cards to avoid, and a decoder for all those rarity symbols.</p>
+    <div class="searchbar">
+      <input id="q" type="text" placeholder="Try &quot;Lugia V&quot;, &quot;Charizard&quot;, &quot;Umbreon VMAX&quot;…" autocomplete="off">
+      <button id="go">Search</button>
+    </div>
+    <div class="filters">
+      <div class="fg"><label>Set</label>
+        <select id="f-set"><option value="">All sets</option></select></div>
+      <div class="fg"><label>Language</label>
+        <select id="f-lang">
+          <option value="en">English</option>
+          <option value="jp">Japanese</option>
+          <option value="zh">Chinese</option>
+          <option value="de">German</option>
+          <option value="fr">French</option>
+        </select></div>
+      <div class="fg"><label>Condition (shop links only)</label>
+        <select id="f-cond">
+          <option value="Near Mint">Near Mint</option>
+          <option value="Lightly Played">Lightly Played</option>
+          <option value="Moderately Played">Moderately Played</option>
+          <option value="Heavily Played">Heavily Played</option>
+          <option value="">Any condition</option>
+        </select></div>
+    </div>
+    <div class="hint">Live card data + real TCGplayer pricing. <b>Set</b> filters the results grid. <b>Language</b> &amp; <b>condition</b> steer the outbound shop links — they don't change the in-app price, since the free data has one price per card, not per condition. Real per-condition Near Mint pricing arrives with the backend. Try <b>Moonbreon</b>.</div>
+  </section>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="search">🔍 Search &amp; Compare</div>
+    <div class="tab" data-tab="deals">📉 Under Market</div>
+    <div class="tab" data-tab="budget">💰 Budget Builder</div>
+    <div class="tab" data-tab="avoid">🚫 Cards to Avoid</div>
+    <div class="tab" data-tab="calendar">🗓️ Sets &amp; Restocks</div>
+    <div class="tab" data-tab="decoder">🎓 Rarity Decoder</div>
+  </div>
+
+  <div id="tab-search">
+    <div id="results" class="results"></div>
+    <div id="search-state" class="state">
+      <div class="big">🎴</div>
+      Search a card name to see its real TCGplayer price and links to every shop.
+    </div>
+  </div>
+
+  <div id="tab-deals" style="display:none">
+    <p style="color:var(--ink-dim);font-size:13.5px;margin-bottom:16px">Cards whose <b style="color:var(--ink)">lowest current listing</b> sits well below their <b style="color:var(--ink)">market price</b> on TCGplayer — a real "cheaper than usual right now" signal from the listing data. Not a trend prediction.</p>
+    <div id="deals-state" class="state"><div class="spinner"></div>Scanning listings for prices under market…</div>
+    <div id="deals" class="results"></div>
+  </div>
+
+  <div id="tab-budget" style="display:none">
+    <div class="panel">
+      <h3>💰 Budget Builder</h3>
+      <p class="lead">Set your budget, how many cards you want, and your horizon. Route 7 fills a basket using real TCGplayer market prices — short-term leans toward cards listed below market, long-term toward higher-value staples.</p>
+      <div class="controls">
+        <div class="ctrl">
+          <label>Budget</label>
+          <div class="val" id="budget-val">$150</div>
+          <input id="budget-slider" type="range" min="0" max="10000" value="150" step="25">
+        </div>
+        <div class="ctrl">
+          <label>How many cards</label>
+          <div class="val" id="count-val">5 cards</div>
+          <input id="count-slider" type="range" min="1" max="20" value="5" step="1">
+        </div>
+        <div class="ctrl">
+          <label>Horizon</label>
+          <div class="seg" id="horizon">
+            <button class="on" data-h="short">Short-term flip</button>
+            <button data-h="long">Long-term hold</button>
+          </div>
+        </div>
+        <div class="ctrl" style="flex:0 0 auto">
+          <label>&nbsp;</label>
+          <button id="build-btn" style="padding:12px 24px;border-radius:10px;border:none;cursor:pointer;font-weight:700;background:linear-gradient(180deg,var(--volt),#2bb3a8);color:#04201d">Build basket</button>
+        </div>
+      </div>
+      <div id="basket" class="basket"></div>
+    </div>
+  </div>
+
+  <div id="tab-avoid" style="display:none">
+    <div class="panel">
+      <h3>🚫 Cards to Avoid</h3>
+      <p class="lead">A heuristic, not a guarantee. Route 7 flags cards showing the classic "looks premium, ages poorly" pattern: very high secret/hyper/gold rarity <b>and</b> a lowest listing sitting well under market (a sign supply outweighs demand). These are the cards seasoned collectors are wary of paying up for. Always cross-check with a market source like PokéBeard before deciding.</p>
+    </div>
+    <div id="avoid-state" class="state"><div class="spinner"></div>Checking the usual suspects…</div>
+    <div id="avoid" class="results"></div>
+  </div>
+
+  <div id="tab-calendar" style="display:none">
+    <div class="panel">
+      <h3>🗓️ Recent &amp; Upcoming Sets</h3>
+      <p class="lead">Set release dates pulled live from the card database — genuinely accurate for released and officially dated sets. Loaded newest-first.</p>
+      <div id="rel-list" class="rel-list"><div class="state"><div class="spinner"></div>Loading set calendar…</div></div>
+    </div>
+    <div class="panel">
+      <h3>🔔 Restock Watch</h3>
+      <p class="lead">Restock times and drop schedules aren't published as structured data anywhere, and no free/legal feed exposes them — so rather than invent a schedule, Route 7 sends you to the real sources collectors actually watch. Bookmark these:</p>
+      <div class="linkrow">
+        <a class="linkbtn" href="https://www.pokemoncenter.com/category/new-releases" target="_blank" rel="noopener">Pokémon Center — New Releases ↗</a>
+        <a class="linkbtn" href="https://www.instagram.com/gorilla_tcg/" target="_blank" rel="noopener">@gorilla_tcg (daily prices) ↗</a>
+        <a class="linkbtn" href="https://www.youtube.com/results?search_query=pokebeard+market" target="_blank" rel="noopener">PokéBeard — market videos ↗</a>
+        <a class="linkbtn" href="https://www.pokemon.com/us/pokemon-tcg/" target="_blank" rel="noopener">Official TCG site ↗</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-decoder" style="display:none">
+    <div class="panel">
+      <h3>🎓 Rarity Decoder</h3>
+      <p class="lead">Every symbol and buzzword on a modern card, in plain English — and a rough take on how each rarity tends to hold value. Understanding this is half the battle before you spend a dollar.</p>
+      <div class="decoder" id="decoder"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-bg">
+  <div class="modal" id="modal">
+    <span class="close" id="close">×</span>
+    <div class="modal-top">
+      <img id="m-img" src="" alt="">
+      <div class="modal-info">
+        <h3 id="m-name"></h3>
+        <div class="sub" id="m-sub"></div>
+        <span class="rar" id="m-rar"></span>
+        <div id="m-price"></div>
+        <div id="m-avoid"></div>
+      </div>
+    </div>
+    <div class="cmp">
+      <h4>Compare across shops</h4>
+      <div class="cmp-note" id="m-note"></div>
+      <div id="m-sites"></div>
+      <a id="m-gorilla" class="gorilla" href="#" target="_blank" rel="noopener">
+        📸 Check today's price on <b>@gorilla_tcg</b> →
+      </a>
+    </div>
+    <div class="cmp-foot" id="m-foot"></div>
+  </div>
+</div>
+
+<footer>
+  <div>Route 7 shows real TCGplayer pricing from the Pokémon TCG API. Shop links are real; only TCGplayer returns a live price here.</div>
+  <div>Inspired by <span class="src">PokéBeard</span> (weekly market videos) and <span class="src">gorilla_tcg</span> (daily price posts).</div>
+  <div class="disclaim">Prototype. TCGplayer market/low/high, the "under market" signal, and set release dates are real. Per-condition Near Mint prices, other-shop prices, and restock schedules need paid/partner APIs or aren't published anywhere — those are honest links, not invented numbers. The Cards to Avoid list is a heuristic. Not financial advice.</div>
+</footer>
+
+<script>
+const API = "https://api.pokemontcg.io/v2/cards";
+const SETS_API = "https://api.pokemontcg.io/v2/sets";
+const GORILLA_IG="https://www.instagram.com/gorilla_tcg/";
+
+// ---- filter state ----
+const F = {set:"", lang:"en", cond:"Near Mint"};
+
+// eBay language keyword + Cardmarket locale differ by language selection (honest routing, not fake prices)
+// Non-English languages don't exist in the (English-only) card database, so selecting them
+// routes to real regional marketplaces where those cards actually live — see renderLangPanel.
+const LANG = {
+  en:{kw:"", label:"English", native:""},
+  jp:{kw:"japanese", label:"Japanese", native:"日本語",
+      ebay:"https://www.ebay.com/sch/i.html?_nkw=$Q$+japanese+pokemon&_sacat=183454&LH_BIN=1&_sop=15",
+      tcg:"https://www.tcgplayer.com/search/pokemon-japan/product?q=$Q$&view=grid",
+      market:"https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=$Q$&mode=gallery",
+      pricecharting:"https://www.pricecharting.com/search-products?q=$Q$+japanese&type=prices"},
+  zh:{kw:"chinese", label:"Chinese", native:"中文",
+      ebay:"https://www.ebay.com/sch/i.html?_nkw=$Q$+chinese+pokemon&_sacat=183454&LH_BIN=1&_sop=15",
+      tcg:"https://www.tcgplayer.com/search/pokemon/product?q=$Q$+chinese&view=grid",
+      market:"https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=$Q$",
+      pricecharting:"https://www.pricecharting.com/search-products?q=$Q$+chinese&type=prices"},
+  de:{kw:"german", label:"German", native:"Deutsch",
+      ebay:"https://www.ebay.de/sch/i.html?_nkw=$Q$+pokemon&_sacat=183454&LH_BIN=1&_sop=15",
+      tcg:"https://www.tcgplayer.com/search/pokemon/product?q=$Q$+german&view=grid",
+      market:"https://www.cardmarket.com/de/Pokemon/Products/Search?searchString=$Q$",
+      pricecharting:"https://www.pricecharting.com/search-products?q=$Q$+german&type=prices"},
+  fr:{kw:"french", label:"French", native:"Français",
+      ebay:"https://www.ebay.fr/sch/i.html?_nkw=$Q$+pokemon&_sacat=183454&LH_BIN=1&_sop=15",
+      tcg:"https://www.tcgplayer.com/search/pokemon/product?q=$Q$+french&view=grid",
+      market:"https://www.cardmarket.com/fr/Pokemon/Products/Search?searchString=$Q$",
+      pricecharting:"https://www.pricecharting.com/search-products?q=$Q$+french&type=prices"},
+};
+// eBay condition codes: NM/LP etc. map loosely to eBay's item condition + keyword
+function ebayCondKw(cond){ return cond ? cond.toLowerCase() : "" }
+function tcgCondParam(cond){ return cond ? `?Condition=${encodeURIComponent(cond)}` : "" }
+
+function enc(c){
+  const lang = LANG[F.lang]?.kw || "";
+  return encodeURIComponent(`${c.name} ${c.set?c.set.name:''} ${c.number||''} ${lang}`.trim());
+}
+const money=n=>"$"+Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+
+// ---- real price extraction (no synthesis) ----
+function realPrice(card){
+  const tp = card.tcgplayer;
+  if(!tp || !tp.prices) return null;
+  const order=["holofoil","reverseHolofoil","normal","1stEditionHolofoil","unlimitedHolofoil","1stEditionNormal"];
+  let key=null;
+  for(const k of order){ if(tp.prices[k]){ key=k; break } }
+  if(!key){ key=Object.keys(tp.prices)[0] }
+  if(!key) return null;
+  const p=tp.prices[key];
+  const label={holofoil:"Holofoil",reverseHolofoil:"Reverse holo",normal:"Normal",
+    "1stEditionHolofoil":"1st ed. holo",unlimitedHolofoil:"Unlimited holo","1stEditionNormal":"1st ed."}[key]||key;
+  return {
+    variant:label,
+    market:p.market ?? null, low:p.low ?? null, mid:p.mid ?? null, high:p.high ?? null,
+    directLow:p.directLow ?? null,
+    url:tp.url || `https://www.tcgplayer.com/search/pokemon/product?q=${enc(card)}`,
+    updatedAt:tp.updatedAt || null
+  };
+}
+function headline(rp){ if(!rp) return null; return rp.market ?? rp.mid ?? rp.low ?? null }
+function underMarket(rp){
+  if(!rp) return 0;
+  const lo = rp.directLow ?? rp.low;
+  if(!lo || !rp.market || rp.market<=0) return 0;
+  return Math.max(0, (rp.market - lo)/rp.market);
+}
+// ---- avoid heuristic ----
+const AVOID_RARITIES=["Rare Secret","Rare Rainbow","Rare Shiny","Rare Shiny GX","Hyper Rare","Rare Rainbow Alt","Rare Gold"];
+function isGoldish(card){
+  const r=(card.rarity||"").toLowerCase();
+  return r.includes("secret")||r.includes("rainbow")||r.includes("hyper")||r.includes("gold");
+}
+function avoidScore(card){
+  const rp=realPrice(card); if(!rp) return {flag:false};
+  const um=underMarket(rp); const h=headline(rp);
+  // pattern: premium-looking gold/secret/rainbow/hyper AND lowest listing well under market
+  if(isGoldish(card) && um>=0.20 && h!=null && h>=2){
+    return {flag:true, um, reason:`This is a ${card.rarity} — the "gold/secret" tier that prints in every set and rarely holds value. Its cheapest listing is ${(um*100).toFixed(0)}% below market, a sign supply is outrunning demand. Collectors generally avoid paying up for these unless it's a chase card.`};
+  }
+  return {flag:false, um};
+}
+
+function cardTile(card){
+  const rp=realPrice(card);
+  const h=headline(rp);
+  const um=underMarket(rp);
+  const av=avoidScore(card);
+  const img=card.images?card.images.small:"";
+  let priceHtml, deltaHtml="";
+  if(h!=null){
+    priceHtml=`<span class="price">${money(h)}</span>`;
+    if(um>=0.10){ deltaHtml=`<span class="delta down">▼ ${(um*100).toFixed(0)}% under mkt</span>` }
+  }else{
+    priceHtml=`<span class="price na">price unavailable</span>`;
+  }
+  const div=document.createElement("div");
+  div.className="pcard";
+  div.innerHTML=`
+    ${av.flag?'<span class="flag">⚠ AVOID</span>':''}
+    <div class="imgwrap"><img loading="lazy" src="${img}" alt="${card.name}"></div>
+    <div class="meta">
+      <div class="nm">${card.name}</div>
+      <div class="st">${card.set?card.set.name:""} · #${card.number||"?"}</div>
+      <div class="row">${priceHtml}${deltaHtml}</div>
+      <span class="rar">${card.rarity||"—"}</span>
+    </div>`;
+  div.onclick=()=>openModal(card);
+  return div;
+}
+
+async function fetchCards(query,extra=""){
+  // apply set filter if set
+  let q=query;
+  if(F.set) q += ` set.id:${F.set}`;
+  const url=`${API}?q=${encodeURIComponent(q)}${extra}&pageSize=36&orderBy=-set.releaseDate`;
+  const res=await fetch(url);
+  if(!res.ok) throw new Error("api "+res.status);
+  const j=await res.json();
+  return j.data||[];
+}
+
+// ---------- populate SET filter live ----------
+async function loadSets(){
+  try{
+    const res=await fetch(`${SETS_API}?orderBy=-releaseDate&pageSize=250`);
+    const j=await res.json();
+    const sel=document.getElementById("f-set");
+    (j.data||[]).forEach(s=>{
+      const o=document.createElement("option");
+      o.value=s.id;
+      o.textContent=`${s.name} (${s.series}, ${s.releaseDate?s.releaseDate.slice(0,4):'?'})`;
+      sel.appendChild(o);
+    });
+  }catch(e){/* leave "All sets" */}
+}
+
+// ---------- SEARCH ----------
+const results=document.getElementById("results");
+const searchState=document.getElementById("search-state");
+async function doSearch(){
+  const term=document.getElementById("q").value.trim();
+  if(!term && !F.set){ return }
+
+  // Non-English: the card DB is English-only, so route to real regional marketplaces instead.
+  if(F.lang!=="en" && term){
+    renderLangPanel(term);
+    return;
+  }
+
+  let query = term ? (/moonbreon/i.test(term) ? 'name:"umbreon vmax"' : `name:"${term}"`) : "*";
+  results.innerHTML="";
+  searchState.style.textAlign=""; searchState.style.padding=""; // reset in case lang panel set them
+  searchState.style.display="block";
+  searchState.innerHTML='<div class="spinner"></div>Looking up real prices…';
+  try{
+    let cards=await fetchCards(query);
+    if(cards.length===0 && term && !term.includes(" ")) cards=await fetchCards(`name:${term}*`);
+    // keep only cards whose name genuinely contains the search words (API relevance can be loose)
+    if(term){
+      const words=(/moonbreon/i.test(term)?"umbreon vmax":term).toLowerCase().split(/\s+/).filter(Boolean);
+      const strict=cards.filter(c=>{const n=(c.name||"").toLowerCase();return words.every(w=>n.includes(w))});
+      if(strict.length) cards=strict;
+    }
+    searchState.style.display=cards.length?"none":"block";
+    if(!cards.length){searchState.innerHTML='<div class="big">🕳️</div>No cards found. Try a different name, or loosen the set filter.';return}
+    cards.sort((a,b)=>(headline(realPrice(b))!=null)-(headline(realPrice(a))!=null));
+    cards.forEach(c=>results.appendChild(cardTile(c)));
+  }catch(e){
+    searchState.style.display="block";
+    searchState.innerHTML='<div class="big">⚠️</div>Couldn\'t reach the card database right now. Give it a moment and try again.';
+  }
+}
+document.getElementById("go").onclick=doSearch;
+document.getElementById("q").addEventListener("keydown",e=>{if(e.key==="Enter")doSearch()});
+document.getElementById("f-set").onchange=e=>{F.set=e.target.value; if(document.getElementById("q").value.trim()||F.set) doSearch()};
+document.getElementById("f-lang").onchange=e=>{F.lang=e.target.value; if(document.getElementById("q").value.trim()) doSearch()};
+document.getElementById("f-cond").onchange=e=>{F.cond=e.target.value};
+
+// ---------- non-English routing panel (Option 1) ----------
+function renderLangPanel(term){
+  const L=LANG[F.lang];
+  const q=encodeURIComponent(term);
+  const dest=[
+    {name:"eBay",         color:"#e11d48", note:`${L.label} listings, Buy It Now, cheapest first`, url:L.ebay.replace("$Q$",q)},
+    {name:"TCGplayer",    color:"#3b82f6", note:(F.lang==="jp"?"Japanese product catalog":`${L.label} search`), url:L.tcg.replace("$Q$",q)},
+    {name:"Cardmarket",   color:"#22c55e", note:`European marketplace (${L.label})`, url:L.market.replace("$Q$",q)},
+    {name:"PriceCharting",color:"#f59e0b", note:`${L.label} price history & graded`, url:L.pricecharting.replace("$Q$",q)},
+  ];
+  results.innerHTML="";
+  searchState.style.display="block";
+  searchState.style.textAlign="left";
+  searchState.style.padding="0";
+  searchState.innerHTML=`
+    <div class="panel" style="margin-top:4px">
+      <h3>${L.native?L.native+" · ":""}${L.label} “${term}”</h3>
+      <p class="lead">Route 7's live price data comes from an English-only card database, so ${L.label} cards can't be shown as tiles here yet. But that's exactly where these marketplaces shine — tap through to real ${L.label} listings for “${term}”, sorted cheapest-first where possible.</p>
+      <div id="lang-dest"></div>
+      <div style="color:var(--ink-dim);font-size:11.5px;margin-top:12px;line-height:1.5">
+        Want ${L.label} cards as real in-app tiles with prices? That arrives with the backend — a ${L.label}-capable price source plugged in behind Route 7. For now, switch <b style="color:var(--volt)">Language</b> back to English to browse priced tiles.
+      </div>
+    </div>`;
+  document.getElementById("lang-dest").innerHTML=dest.map(d=>`
+    <a class="site-row" href="${d.url}" target="_blank" rel="noopener">
+      <div class="site-left"><span class="site-dot" style="background:${d.color}"></span>
+        <div><div class="site-name">${d.name}</div><div class="site-ship">${d.note}</div></div>
+      </div>
+      <div class="site-go">Open ↗</div>
+    </a>`).join("");
+}
+
+// ---------- shop links (respect language + condition) ----------
+function shopLinks(card){
+  const langKw = LANG[F.lang]?.kw || "";
+  const condKw = ebayCondKw(F.cond);
+  return [
+    {name:"eBay", color:"#e11d48", note:`${F.cond||'any'} · ${LANG[F.lang].label} · price low→high`,
+      url:`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(`${card.name} ${card.set?card.set.name:''} ${card.number||''} pokemon ${langKw} ${condKw}`.trim())}&_sacat=183454&LH_BIN=1&_sop=15`},
+    {name:"Cardmarket", color:"#22c55e", note:"EU marketplace",
+      url:`https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${enc(card)}`},
+    {name:"PriceCharting", color:"#f59e0b", note:"price history & graded",
+      url:`https://www.pricecharting.com/search-products?q=${enc(card)}&type=prices`},
+    {name:"Local shops", color:"#a855f7", note:"card shops near you",
+      url:`https://www.google.com/maps/search/pokemon+card+shops+near+me`},
+  ];
+}
+
+// ---------- MODAL ----------
+const modalBg=document.getElementById("modal-bg");
+function openModal(card){
+  const rp=realPrice(card);
+  const av=avoidScore(card);
+  document.getElementById("m-img").src=card.images?card.images.large||card.images.small:"";
+  document.getElementById("m-name").textContent=card.name;
+  document.getElementById("m-sub").textContent=`${card.set?card.set.name:""} · #${card.number||"?"} · released ${card.set?card.set.releaseDate:"—"}`;
+  document.getElementById("m-rar").textContent=card.rarity||"—";
+
+  const pe=document.getElementById("m-price");
+  if(rp && headline(rp)!=null){
+    const um=underMarket(rp);
+    pe.innerHTML=`
+      <div class="realprice">
+        <div class="headline">
+          <span class="big">${money(headline(rp))}</span>
+          <span class="lbl">TCGplayer market</span>
+          <span class="variant">${rp.variant}</span>
+        </div>
+        <div class="rng">
+          ${rp.low!=null?`<div class="cell"><div class="k">Low</div><div class="v">${money(rp.low)}</div></div>`:""}
+          ${rp.mid!=null?`<div class="cell"><div class="k">Mid</div><div class="v">${money(rp.mid)}</div></div>`:""}
+          ${rp.high!=null?`<div class="cell"><div class="k">High</div><div class="v">${money(rp.high)}</div></div>`:""}
+          ${rp.directLow!=null?`<div class="cell"><div class="k">Direct low</div><div class="v">${money(rp.directLow)}</div></div>`:""}
+          ${um>=0.10?`<div class="cell"><div class="k">Under market</div><div class="v" style="color:var(--rise)">▼ ${(um*100).toFixed(0)}%</div></div>`:""}
+        </div>
+        ${rp.updatedAt?`<div class="updated">TCGplayer prices updated ${rp.updatedAt}</div>`:""}
+      </div>`;
+  }else{
+    pe.innerHTML=`<div class="noprice">No TCGplayer price is available for this card through the data source. Use the shop links below to check current listings directly.</div>`;
+  }
+
+  // avoid note
+  document.getElementById("m-avoid").innerHTML = av.flag
+    ? `<div class="avoid-note"><b>⚠ Cards to Avoid flag</b>${av.reason}</div>` : "";
+
+  // shops — TCGplayer row. The API's url is a redirect (prices.pokemontcg.io/...) that lands on the
+  // real product page; appending query params breaks the redirect, so only add condition params when
+  // we actually have a direct tcgplayer.com URL. Otherwise use the redirect exactly as given.
+  const isDirectTcg = rp && rp.url && rp.url.includes("tcgplayer.com");
+  const tcgHref = rp && rp.url
+    ? (isDirectTcg
+        ? rp.url + (rp.url.includes("?")?"&":"?") + (F.cond?`Condition=${encodeURIComponent(F.cond)}&`:"") + "Language=English"
+        : rp.url)                                   // redirect URL: leave untouched so it resolves
+    : `https://www.tcgplayer.com/search/pokemon/product?q=${enc(card)}`;
+  const tcgPrice = (rp && rp.directLow!=null) ? money(rp.directLow) : (rp && rp.low!=null ? money(rp.low) : "");
+  const tcgSub = isDirectTcg
+    ? (tcgPrice?`listings from ${tcgPrice} · opens ${F.cond||'all'}, cheapest first`:`opens ${F.cond||'all'} listings, cheapest first`)
+    : (tcgPrice?`market listings from ${tcgPrice} · pick condition on the page`:`opens this card's TCGplayer page`);
+  let rows=`
+    <a class="site-row hero-row" href="${tcgHref}" target="_blank" rel="noopener">
+      <div class="site-left"><span class="site-dot" style="background:#3b82f6"></span>
+        <div><div class="site-name">TCGplayer${isDirectTcg&&F.cond?`<span class="badge-nm">${F.cond.toUpperCase()}</span>`:''}</div>
+        <div class="site-ship">${tcgSub}</div></div>
+      </div>
+      <div class="site-go">Open ↗</div>
+    </a>`;
+  rows+=shopLinks(card).map(s=>`
+    <a class="site-row" href="${s.url}" target="_blank" rel="noopener">
+      <div class="site-left"><span class="site-dot" style="background:${s.color}"></span>
+        <div><div class="site-name">${s.name}</div>
+        <div class="site-ship">${s.note}</div></div>
+      </div>
+      <div class="site-go">Search ↗</div>
+    </a>`).join("");
+  document.getElementById("m-sites").innerHTML=rows;
+  document.getElementById("m-gorilla").href=GORILLA_IG;
+
+  document.getElementById("m-note").innerHTML = isDirectTcg
+    ? `TCGplayer price is live. The top link opens TCGplayer's <b style="color:var(--ink)">${F.cond||'all-condition'}</b> listings sorted cheapest-first. Other links open each shop's search.`
+    : `TCGplayer price is live. The top link opens this card's TCGplayer page, where you can pick your condition. Other links open each shop's search.`;
+  document.getElementById("m-foot").innerHTML =
+    `Auto-applying the condition filter and showing live per-condition prices needs TCGplayer's own API behind a small backend — the planned next step.`;
+
+  modalBg.classList.add("open");
+}
+document.getElementById("close").onclick=()=>modalBg.classList.remove("open");
+modalBg.onclick=e=>{if(e.target===modalBg)modalBg.classList.remove("open")};
+
+// ---------- TABS ----------
+document.querySelectorAll(".tab").forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    const tab=t.dataset.tab;
+    ["search","deals","budget","avoid","calendar","decoder"].forEach(name=>{
+      document.getElementById("tab-"+name).style.display = tab===name ? "block":"none";
+    });
+    if(tab==="deals"&&!dealsLoaded)loadDeals();
+    if(tab==="avoid"&&!avoidLoaded)loadAvoid();
+    if(tab==="calendar"&&!calLoaded)loadCalendar();
+    if(tab==="decoder"&&!decoderLoaded)loadDecoder();
+  };
+});
+
+// ---------- UNDER MARKET ----------
+let dealsLoaded=false;
+const POP_SEEDS=["charizard","umbreon","pikachu","mewtwo","rayquaza","lugia","gengar","gardevoir","snorlax","greninja"];
+async function loadDeals(){
+  dealsLoaded=true;
+  const wrap=document.getElementById("deals"), st=document.getElementById("deals-state");
+  try{
+    const picks=[];
+    for(const s of POP_SEEDS){
+      const cards=await fetchCards(`name:${s}`,"");
+      cards.forEach(c=>{const rp=realPrice(c),um=underMarket(rp),h=headline(rp);
+        if(rp&&h!=null&&h>=3&&um>=0.12) picks.push({c,um})});
+    }
+    const seen=new Set(),uniq=[];
+    picks.sort((a,b)=>b.um-a.um).forEach(p=>{if(!seen.has(p.c.id)){seen.add(p.c.id);uniq.push(p)}});
+    const top=uniq.slice(0,12);
+    st.style.display=top.length?"none":"block";
+    if(!top.length){st.innerHTML="No cards notably under market right now. Check back after the next swing.";return}
+    top.forEach(({c})=>wrap.appendChild(cardTile(c)));
+  }catch(e){st.innerHTML='<div class="big">⚠️</div>Couldn\'t load the feed. Try again shortly.'}
+}
+
+// ---------- AVOID ----------
+let avoidLoaded=false;
+async function loadAvoid(){
+  avoidLoaded=true;
+  const wrap=document.getElementById("avoid"), st=document.getElementById("avoid-state");
+  try{
+    const picks=[];
+    for(const s of POP_SEEDS){
+      const cards=await fetchCards(`name:${s}`,"");
+      cards.forEach(c=>{const av=avoidScore(c); if(av.flag) picks.push({c,um:av.um})});
+    }
+    const seen=new Set(),uniq=[];
+    picks.sort((a,b)=>b.um-a.um).forEach(p=>{if(!seen.has(p.c.id)){seen.add(p.c.id);uniq.push(p)}});
+    const top=uniq.slice(0,12);
+    st.style.display=top.length?"none":"block";
+    if(!top.length){st.innerHTML="No cards tripped the avoid heuristic in these sets right now.";return}
+    top.forEach(({c})=>wrap.appendChild(cardTile(c)));
+  }catch(e){st.innerHTML='<div class="big">⚠️</div>Couldn\'t load. Try again shortly.'}
+}
+
+// ---------- CALENDAR ----------
+let calLoaded=false;
+async function loadCalendar(){
+  calLoaded=true;
+  const wrap=document.getElementById("rel-list");
+  try{
+    const res=await fetch(`${SETS_API}?orderBy=-releaseDate&pageSize=250`);
+    const j=await res.json();
+    const now=new Date();
+    const sets=(j.data||[]).slice(0,24);
+    wrap.innerHTML=sets.map(s=>{
+      const d=s.releaseDate?new Date(s.releaseDate.replace(/\//g,"-")):null;
+      const upcoming = d && d>now;
+      const recent = d && !upcoming && (now-d)/(1000*3600*24) < 120;
+      const chip = upcoming?`<span class="rel-chip chip-soon">UPCOMING</span>`
+        : recent?`<span class="rel-chip chip-new">RECENT</span>`:"";
+      return `<div class="rel-row">
+        <img src="${s.images?s.images.logo:''}" alt="">
+        <div><div class="rel-name">${s.name}</div>
+        <div class="rel-date">${s.series} · ${s.releaseDate||'date TBA'} · ${s.printedTotal||'?'} cards</div></div>
+        ${chip}</div>`;
+    }).join("");
+  }catch(e){wrap.innerHTML='<div class="state">Couldn\'t load the set calendar. Try again shortly.</div>'}
+}
+
+// ---------- DECODER ----------
+let decoderLoaded=false;
+const DECODER=[
+  {em:"⭐",t:"Common / Uncommon",b:"The circle (common) and diamond (uncommon) symbols. The bulk of every pack. Individually near-worthless unless it's an old-set staple.",tag:"tag-care",tagt:"Bulk"},
+  {em:"✦",t:"Rare (black star)",b:"A black star. The 'rare' slot in older packs. Most are cheap; a few holo rares from key sets carry value.",tag:"tag-care",tagt:"Usually cheap"},
+  {em:"✨",t:"Holo / Reverse Holo",b:"Holo = shiny artwork panel. Reverse holo = shiny everywhere except the art. Reverse holos are common and rarely worth more than a dollar or two.",tag:"tag-care",tagt:"Condition-sensitive"},
+  {em:"🅥",t:"V / VMAX / VSTAR",b:"Modern powerful Pokémon. Full-art and alternate-art versions (the 'alt arts') are where the real chase value lives — like Moonbreon.",tag:"tag-hold",tagt:"Alt arts hold well"},
+  {em:"🎨",t:"Illustration Rare (IR)",b:"Special-art cards with the Pokémon in a scene. The modern collector darling — strong demand, often the best long-term hold in a set.",tag:"tag-hold",tagt:"Strong demand"},
+  {em:"🌟",t:"Special Illustration Rare (SIR)",b:"The top-tier full-scene art, very low pull rate. The genuine chase cards; premium prices but the most resilient value.",tag:"tag-hold",tagt:"Top chase"},
+  {em:"🌈",t:"Rainbow Rare",b:"Pastel rainbow foil version of a V/VMAX. Looks flashy but prints in huge numbers relative to demand — historically weak holders.",tag:"tag-avoid",tagt:"Often sinks"},
+  {em:"👑",t:"Gold / Secret / Hyper Rare",b:"Gold-bordered 'secret' cards numbered above the set total. Every set has them, supply is high, and most bleed value fast. This is what the Avoid list targets.",tag:"tag-avoid",tagt:"Usually avoid"},
+  {em:"1️⃣",t:"1st Edition",b:"A stamp on very old sets (Base–Neo era). For vintage cards this is a massive value multiplier — the opposite of the modern gold cards.",tag:"tag-hold",tagt:"Vintage premium"},
+  {em:"🏷️",t:"Grading (PSA/BGS/CGC)",b:"A third party slabs and scores a card 1–10. A PSA 10 can be worth many times a raw copy. Grading fees only make sense above a value threshold.",tag:"tag-care",tagt:"Do the math"},
+];
+function loadDecoder(){
+  decoderLoaded=true;
+  document.getElementById("decoder").innerHTML=DECODER.map(d=>`
+    <div class="dcard">
+      <div class="dt"><span class="em">${d.em}</span>${d.t}</div>
+      <div class="db">${d.b}</div>
+      <span class="tag ${d.tag}">${d.tagt}</span>
+    </div>`).join("");
+}
+
+// ---------- BUDGET ----------
+const slider=document.getElementById("budget-slider"), budgetVal=document.getElementById("budget-val");
+const countSlider=document.getElementById("count-slider"), countVal=document.getElementById("count-val");
+slider.oninput=()=>budgetVal.textContent="$"+(+slider.value).toLocaleString();
+countSlider.oninput=()=>countVal.textContent=countSlider.value+(countSlider.value==="1"?" card":" cards");
+let horizon="short";
+document.querySelectorAll("#horizon button").forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll("#horizon button").forEach(x=>x.classList.remove("on"));b.classList.add("on");horizon=b.dataset.h}
+});
+const BUDGET_SEEDS=["charizard","umbreon","pikachu","mewtwo","rayquaza","lugia","gengar","gardevoir","snorlax","eevee","greninja","blastoise","mewtwo","tyranitar","dragonite"];
+document.getElementById("build-btn").onclick=buildBasket;
+async function buildBasket(){
+  const budget=+slider.value, wantCount=+countSlider.value;
+  const basket=document.getElementById("basket");
+  basket.innerHTML='<div class="state"><div class="spinner"></div>Assembling '+wantCount+' cards under $'+budget.toLocaleString()+'…</div>';
+  try{
+    let pool=[];
+    for(const s of BUDGET_SEEDS){
+      const cards=await fetchCards(`name:${s}`,"");
+      cards.forEach(c=>{const rp=realPrice(c),h=headline(rp);
+        if(rp&&h!=null&&h>=0.5) pool.push({c,rp,h,um:underMarket(rp),avoid:avoidScore(c).flag})});
+    }
+    const seen=new Set(); pool=pool.filter(p=>{if(seen.has(p.c.id))return false;seen.add(p.c.id);return true});
+    // don't recommend avoid-flagged cards in the basket
+    pool=pool.filter(p=>!p.avoid);
+    pool.sort((a,b)=> horizon==="short" ? (b.um-a.um)||(a.h-b.h) : (b.h-a.h));
+    // aim to fill wantCount cards within budget; long-term buys fewer bigger, short-term more/cheaper
+    const chosen=[]; let spent=0;
+    for(const p of pool){
+      if(chosen.length>=wantCount) break;
+      const remaining = wantCount - chosen.length;
+      const room = budget - spent;
+      // leave room so remaining slots can still be filled (rough guard)
+      if(p.h > room) continue;
+      chosen.push(p); spent+=p.h;
+    }
+    if(!chosen.length){basket.innerHTML='<div class="state">No cards with real prices fit that budget and count. Try raising the budget or lowering the count.</div>';return}
+    const note = chosen.length<wantCount ? `<div style="color:var(--warn);font-size:12px;margin-top:8px">Only found ${chosen.length} that fit — raise the budget for the full ${wantCount}.</div>`:"";
+    basket.innerHTML=chosen.map(p=>`
+      <a class="brow" href="${p.rp.url}" target="_blank" rel="noopener">
+        <div class="site-left">
+          <img src="${p.c.images?p.c.images.small:''}" style="width:34px;border-radius:4px">
+          <div><div class="site-name">${p.c.name}</div>
+          <div class="site-ship">${p.c.set?p.c.set.name:''}${p.um>=0.10?` · <span style="color:var(--rise)">▼ ${(p.um*100).toFixed(0)}% under market</span>`:''}</div></div>
+        </div>
+        <div style="font-family:var(--mono);font-weight:700">${money(p.h)}</div>
+      </a>`).join("")+`
+      <div class="basket-sum">
+        <div style="font-size:12px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.5px">${chosen.length} cards · ${horizon==='short'?'listed under market':'staple holds'}</div>
+        <div class="tot">${money(spent)} <span style="font-size:12px;color:var(--ink-dim)">/ $${budget.toLocaleString()}</span></div>
+      </div>${note}
+      <div style="color:var(--ink-dim);font-size:11.5px;margin-top:8px">Live TCGplayer market values. Avoid-flagged cards are excluded. Tap a card for its TCGplayer page.</div>`;
+  }catch(e){basket.innerHTML='<div class="state"><div class="big">⚠️</div>Couldn\'t build a basket. Try again shortly.</div>'}
+}
+
+// init
+loadSets();
+</script>
+</body>
+</html>

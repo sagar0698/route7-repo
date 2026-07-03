@@ -1,0 +1,3 @@
+# This folder holds one JSON file per tracked card, e.g. swsh12-186.json,
+# each an array of dated price snapshots. The daily GitHub Action populates it.
+# This placeholder just ensures the folder exists in a fresh clone.

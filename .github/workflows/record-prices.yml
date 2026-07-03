@@ -1,0 +1,54 @@
+name: Record card prices
+
+# Runs daily and on manual trigger. The job fetches current prices for every
+# card in data/watchlist.json and commits the updated history JSON back to the
+# repo. Those committed files are what the site reads to draw price trends.
+
+on:
+  schedule:
+    # 09:15 UTC daily (~1-2am US Pacific). GitHub cron can lag at exact-hour
+    # marks, so an offset minute like :15 tends to fire more reliably.
+    - cron: "15 9 * * *"
+  workflow_dispatch: {}   # lets you run it on-demand from the Actions tab
+
+permissions:
+  contents: write         # needed so the job can commit the updated data files
+
+concurrency:
+  group: record-prices
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Record prices
+        env:
+          # Optional: add a repo secret named POKEMONTCG_API_KEY to raise rate
+          # limits. Works fine without it for a small watchlist.
+          POKEMONTCG_API_KEY: ${{ secrets.POKEMONTCG_API_KEY }}
+          # When your eBay account is approved, add these as repo secrets and
+          # wire them into scripts/record_prices.py -> fetch_ebay_price().
+          EBAY_APP_ID: ${{ secrets.EBAY_APP_ID }}
+          EBAY_CERT_ID: ${{ secrets.EBAY_CERT_ID }}
+        run: python scripts/record_prices.py
+
+      - name: Commit updated data
+        run: |
+          git config user.name  "route7-bot"
+          git config user.email "actions@github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No price changes today."
+          else
+            git commit -m "Record prices: $(date -u +%Y-%m-%d)"
+            git push
+          fi

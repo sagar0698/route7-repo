@@ -1,0 +1,11 @@
+{
+  "_comment": "Cards the daily recorder tracks. Each entry needs an 'id' (the Pokemon TCG API card id, e.g. 'swsh12-186'). The optional 'label' is just for your own reference. Find a card's id by searching it in Route 7 and checking the id, or via api.pokemontcg.io. Add/remove freely — the next daily run picks up changes.",
+  "cards": [
+    { "id": "swsh7-215",  "label": "Umbreon VMAX alt art (Moonbreon) — Evolving Skies" },
+    { "id": "swsh12-186", "label": "Lugia V alt art — Silver Tempest" },
+    { "id": "swsh4-188",  "label": "Charizard VMAX — Darkness Ablaze" },
+    { "id": "swsh9-154",  "label": "Giratina V alt art — Lost Origin" },
+    { "id": "swsh11-245", "label": "Rayquaza VMAX alt art — Evolving Skies era" },
+    { "id": "sv1-245",    "label": "Miriam SIR — Scarlet & Violet base" }
+  ]
+}
