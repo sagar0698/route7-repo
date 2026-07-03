@@ -141,6 +141,12 @@
   .gorilla:hover{border-color:#f05ab4}
   .gorilla b{color:#f05ab4}
   .cmp-foot{padding:14px 24px 24px;color:var(--ink-dim);font-size:12px;line-height:1.55}
+  .trendbox{background:var(--void);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .trend-meta{display:flex;gap:22px;margin-top:12px;flex-wrap:wrap;align-items:baseline}
+  .trend-meta .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-dim)}
+  .trend-meta .v{font-family:var(--mono);font-weight:700;font-size:15px;margin-top:2px}
+  .trend-empty{color:var(--ink-dim);font-size:13px;line-height:1.5}
+  #m-trend-badge{font-size:11px;font-weight:700;font-family:var(--mono);padding:2px 9px;border-radius:20px;margin-left:6px;vertical-align:middle}
 
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:22px}
   .panel h3{font-size:18px;margin-bottom:4px}
@@ -345,6 +351,10 @@
         📸 Check today's price on <b>@gorilla_tcg</b> →
       </a>
     </div>
+    <div class="cmp" id="m-trend-wrap" style="display:none">
+      <h4>Price trend <span id="m-trend-badge"></span></h4>
+      <div class="trendbox" id="m-trend"></div>
+    </div>
     <div class="cmp-foot" id="m-foot"></div>
   </div>
 </div>
@@ -398,6 +408,40 @@ function enc(c){
   return encodeURIComponent(`${c.name} ${c.set?c.set.name:''} ${c.number||''} ${lang}`.trim());
 }
 const money=n=>"$"+Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+
+// ---- price history (reads committed JSON from the daily recorder) ----
+// Files live at ./data/history/<card-id>.json, populated by scripts/record_prices.py.
+// Until the daily job has run a few times, these return [] and the trend shows an
+// honest "building history" state rather than a fake line.
+const HISTORY_BASE="./data/history";
+async function loadHistory(cardId){
+  try{
+    const res=await fetch(`${HISTORY_BASE}/${cardId}.json`,{cache:"no-cache"});
+    if(!res.ok) return [];
+    return await res.json();
+  }catch{ return [] }
+}
+function histSeries(history,field="market"){
+  return history.filter(h=>h.tcgplayer&&h.tcgplayer[field]!=null)
+                .map(h=>({date:h.date,value:h.tcgplayer[field]}));
+}
+function histPctChange(series){
+  if(series.length<2) return null;
+  const a=series[0].value,b=series[series.length-1].value;
+  if(!a) return null;
+  return ((b-a)/a)*100;
+}
+function histSpark(series,w=600,h=110,pad=6){
+  if(series.length<2) return null;
+  const vals=series.map(p=>p.value);
+  const min=Math.min(...vals),max=Math.max(...vals),rng=(max-min)||1;
+  const X=i=>pad+(i/(series.length-1))*(w-2*pad);
+  const Y=v=>h-pad-((v-min)/rng)*(h-2*pad);
+  let d=`M${X(0)},${Y(vals[0]).toFixed(1)}`;
+  vals.forEach((v,i)=>{if(i)d+=` L${X(i).toFixed(1)},${Y(v).toFixed(1)}`});
+  const area=`${d} L${X(vals.length-1).toFixed(1)},${h} L${X(0)},${h} Z`;
+  return {path:d,area,min,max,rising:vals[vals.length-1]>=vals[0]};
+}
 
 // ---- real price extraction (no synthesis) ----
 function realPrice(card){
@@ -661,7 +705,56 @@ function openModal(card){
   document.getElementById("m-foot").innerHTML =
     `Auto-applying the condition filter and showing live per-condition prices needs TCGplayer's own API behind a small backend — the planned next step.`;
 
+  // price trend (reads committed history JSON; hidden until data exists)
+  renderTrend(card.id, headline(rp));
+
   modalBg.classList.add("open");
+}
+
+// Loads this card's recorded history and draws a real trend, or an honest
+// "building history" note. Hides the whole section if the file isn't there yet
+// (e.g. site deployed but the daily recorder hasn't run, or card not on watchlist).
+async function renderTrend(cardId, currentMarket){
+  const wrap=document.getElementById("m-trend-wrap");
+  const box=document.getElementById("m-trend");
+  const badge=document.getElementById("m-trend-badge");
+  wrap.style.display="none"; badge.textContent=""; badge.style.background="";
+  const history=await loadHistory(cardId);
+  // guard against a stale modal: only render if this card is still the open one
+  if(!modalBg.classList.contains("open")) return;
+  if(!history.length){
+    // no file / not tracked yet — keep it hidden to avoid clutter for untracked cards
+    return;
+  }
+  wrap.style.display="block";
+  const series=histSeries(history);
+  if(series.length<2){
+    box.innerHTML=`<div class="trend-empty">Tracking started ${series.length?`on ${series[0].date}`:"recently"}. Once the daily recorder logs a few more days, a trend line and % change will appear here. History builds forward from the first run.</div>`;
+    badge.textContent="building";
+    badge.style.background="rgba(165,180,252,.18)"; badge.style.color="var(--hold)";
+    return;
+  }
+  const change=histPctChange(series);
+  const spark=histSpark(series);
+  const col=spark.rising?"#4ade80":"#fb7185";
+  const first=series[0], last=series[series.length-1];
+  badge.textContent=(change>=0?"▲ ":"▼ ")+Math.abs(change).toFixed(1)+"%";
+  badge.style.background=change>=0?"rgba(74,222,128,.15)":"rgba(251,113,133,.15)";
+  badge.style.color=change>=0?"var(--rise)":"var(--fall)";
+  box.innerHTML=`
+    <svg viewBox="0 0 600 110" preserveAspectRatio="none" style="width:100%;height:110px">
+      <defs><linearGradient id="tgrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${col}" stop-opacity=".35"/>
+        <stop offset="100%" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+      <path d="${spark.area}" fill="url(#tgrad)"/>
+      <path d="${spark.path}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round"/>
+    </svg>
+    <div class="trend-meta">
+      <div><div class="k">First recorded</div><div class="v">${money(first.value)}</div><div class="k" style="margin-top:2px">${first.date}</div></div>
+      <div><div class="k">Latest</div><div class="v">${money(last.value)}</div><div class="k" style="margin-top:2px">${last.date}</div></div>
+      <div><div class="k">Range</div><div class="v">${money(spark.min)}–${money(spark.max)}</div></div>
+      <div><div class="k">Data points</div><div class="v">${series.length}</div></div>
+    </div>`;
 }
 document.getElementById("close").onclick=()=>modalBg.classList.remove("open");
 modalBg.onclick=e=>{if(e.target===modalBg)modalBg.classList.remove("open")};

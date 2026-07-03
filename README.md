@@ -72,7 +72,9 @@ After a week you have a 7-day trend; after a year, a yearly one.
   today's entry rather than duplicating it).
 - `.github/workflows/record-prices.yml` — the cron schedule + auto-commit.
 - `data/watchlist.json` — the cards you track. Edit this.
-- `data/history/*.json` — per-card price history (generated).
+- `data/history/*.json` — per-card price history (generated). Ships with one
+  sample file (`swsh12-186.json`, Lugia V) so the trend chart renders before your
+  first recorder run — the daily job overwrites it with real data, or delete it.
 - `data/latest.json` — newest snapshot for every card (generated).
 - `scripts/history-reader.js` — drop-in frontend helpers to read the history
   files and draw a real trend line in the site.
