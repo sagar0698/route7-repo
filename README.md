@@ -87,14 +87,4 @@ watchlist. For a free key with higher limits, register at
 [pokemontcg.io](https://pokemontcg.io), then add it as a repo secret named
 `POKEMONTCG_API_KEY`. The workflow already passes it through.
 
-## Cost summary
-
-| Piece | Cost |
-|---|---|
-| GitHub Pages hosting | Free |
-| GitHub Actions (daily job) | Free (public repo: unlimited; private: 2,000 min/mo, you use ~15) |
-| Pokémon TCG API | Free |
-| eBay API (when added) | Free tier |
-| **Total** | **$0/month** |
-
 Not financial advice — the buy signals and heuristics are illustrative.
